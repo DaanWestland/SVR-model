@@ -4,19 +4,19 @@ import pandas as pd
 from cuml.metrics import r2_score, mean_absolute_error, mean_squared_error
 import time
 import os
-from cuml.svm import LinearSVR
+from sklearn.svm import LinearSVR
 
 file_paths = {
-    "age_thinned": "",
-    "mri_code_thinned": "",
-    "data_thinned": ""
+    "age": "",
+    "mri": "",
+    "data": ""
 }  
 
 # Loading data using cuDF
-y_thinned = cudf.read_parquet(file_paths["age_thinned"])
-mri_code_thinned = pd.read_parquet(file_paths["mri_code_thinned"])
-X_thinned = pd.read_parquet(file_paths["data_thinned"])
-X = cudf.from_pandas(X_thinned)
+y = pd.read_parquet(file_paths["age"])
+mri_code_thinned = pd.read_parquet(file_paths["mri"])
+X = pd.read_parquet(file_paths["data"])
+
 
 mri_code_thinned['group'] = mri_code_thinned['mri_code'].str.split('.').str[0]
 group_dict = mri_code_thinned.groupby('group').apply(lambda df: df.index.tolist()).to_dict()
@@ -66,7 +66,7 @@ def grid_search(X_full, y_full, model, param_grid, n_runs, n_splits, groups, mri
                 run_training_times.append(elapsed_time)
                 run_training_times_forsaving.append({'Run': run, 'Fold': fold, 'TrainingTime': elapsed_time})
                 preds = model.predict(X_test)
-                preds_print = preds.toArrow().topylist
+                preds_print = preds.topylist
 
                 results_fold = pd.DataFrame({
                     'MRI_Code': mri_codes_test.values,
@@ -78,7 +78,7 @@ def grid_search(X_full, y_full, model, param_grid, n_runs, n_splits, groups, mri
                 run_metrics['R2'].append(r2_score(y_test_series, preds))
                 run_metrics['MAE'].append(mean_absolute_error(y_test_series, preds))
                 run_metrics['RMSE'].append(mean_squared_error(y_test_series, preds, squared=False))
-                pearson_r = np.corrcoef(y_test_series.to_numpy(), preds.to_numpy())[0, 1]
+                pearson_r = np.corrcoef(y_test_series.to_numpy(), preds)[0, 1]
                 
                 run_metrics['PearsonR'].append(pearson_r)
 
@@ -116,4 +116,4 @@ model = LinearSVR(max_iter=10000, epsilon=0)
 C_values = [0.001]
 param_grid = {'C': C_values}
 
-grid_search(X, y_thinned, model, param_grid, n_runs=1, n_splits=10, groups=groups, mri_codes=mri_code_thinned)
+grid_search(X, y, model, param_grid, n_runs=1, n_splits=10, groups=groups, mri_codes=mri_code_thinned)
